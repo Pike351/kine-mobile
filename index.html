@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kiné Mobile">
+    <title>Kiné Mobile</title>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .sync-status {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        
+        .sync-status.connected {
+            color: #16a34a;
+        }
+        
+        .sync-status.error {
+            color: #dc2626;
+        }
+        
+        .container {
+            padding: 1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .screen {
+            display: none;
+        }
+        
+        .screen.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            background: #f9fafb;
+            border-radius: 8px;
+            margin-bottom: 0.5rem;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: 1.25rem;
+            height: 1.25rem;
+            cursor: pointer;
+        }
+        
+        .checkbox-group label {
+            flex: 1;
+            font-weight: 500;
+            color: #374151;
+            cursor: pointer;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+        
+        .acte-item {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .acte-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        
+        .acte-patient {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .acte-montant {
+            font-weight: 700;
+            color: #667eea;
+            font-size: 1.125rem;
+        }
+        
+        .acte-details {
+            font-size: 0.875rem;
+            color: #6b7280;
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .acte-actions {
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn-small {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .btn-delete {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .total-day {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 1rem;
+        }
+        
+        .total-day-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+        
+        .total-day-amount {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #6b7280;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            animation: slideUp 0.3s ease;
+            max-width: 90%;
+        }
+        
+        @keyframes slideUp {
+            from {
+                transform: translateX(-50%) translateY(100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .toast.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💼 Kiné Mobile</h1>
+        <div class="sync-status" id="syncStatus">⏳ Connexion...</div>
+    </div>
+
+    <div class="container">
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchScreen('saisie')">➕ Saisie</button>
+            <button class="nav-tab" onclick="switchScreen('liste')">📋 Aujourd'hui</button>
+        </div>
+
+        <!-- Écran 1 : Saisie d'acte -->
+        <div id="screen-saisie" class="screen active">
+            <div class="card">
+                <h2 style="margin-bottom: 1.5rem; color: #1f2937;">Nouvel acte</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">📅 Date</label>
+                    <input type="date" id="acteDate" class="form-input" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">👤 Patient</label>
+                    <select id="actePatient" class="form-select">
+                        <option value="">Sélectionner un patient</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">💉 Type d'acte</label>
+                    <select id="acteType" class="form-select" onchange="updateMontant()">
+                        <option value="">Sélectionner un type</option>
+                        <option value="AMK" data-montant="16.13">AMK - Massage (16.13€)</option>
+                        <option value="AMS" data-montant="23.10">AMS - Rééducation (23.10€)</option>
+                        <option value="AMC" data-montant="30.00">AMC - Consultation (30.00€)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">💰 Montant</label>
+                    <input type="number" id="acteMontant" class="form-input" step="0.01" readonly />
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="acteBilan" />
+                    <label for="acteBilan">📝 Acte de bilan</label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="acteIndemnite" onchange="toggleIndemnite()" />
+                    <label for="acteIndemnite">🚗 Indemnité de déplacement (2.50€)</label>
+                </div>
+                
+                <div class="form-group" id="indemniteMontantGroup" style="display: none;">
+                    <label class="form-label">Montant indemnité</label>
+                    <input type="number" id="indemniteMontant" class="form-input" value="2.50" step="0.01" />
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">➕ Dépassement d'honoraires (optionnel)</label>
+                    <input type="number" id="acteDepassement" class="form-input" value="0" step="0.01" />
+                </div>
+                
+                <button class="btn btn-primary" onclick="saveActe()">
+                    💾 Enregistrer l'acte
+                </button>
+            </div>
+        </div>
+
+        <!-- Écran 2 : Liste actes du jour -->
+        <div id="screen-liste" class="screen">
+            <div id="actesContainer"></div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // ===== CONFIGURATION FIREBASE =====
+        const firebaseConfig = {
+            apiKey: "AIzaSyAjcec_H6NalogrNhEbGGOZRdMKZzNVVRs",
+            authDomain: "kine-comptabilite.firebaseapp.com",
+            databaseURL: "https://kine-comptabilite-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "kine-comptabilite",
+            storageBucket: "kine-comptabilite.firebasestorage.app",
+            messagingSenderId: "100093570082",
+            appId: "1:100093570082:web:f62c3daccec7065745ae7b"
+        };
+
+        // Initialiser Firebase
+        let firebaseApp, database, firebaseReady = false;
+        
+        try {
+            firebaseApp = firebase.initializeApp(firebaseConfig);
+            database = firebase.database();
+            
+            // Test de connexion
+            database.ref('.info/connected').on('value', (snapshot) => {
+                if (snapshot.val() === true) {
+                    firebaseReady = true;
+                    updateSyncStatus('connected', '🟢 Connecté');
+                    console.log('✅ Firebase connecté');
+                } else {
+                    updateSyncStatus('error', '🔴 Déconnecté');
+                    console.log('⚠️ Firebase déconnecté');
+                }
+            });
+            
+        } catch (error) {
+            console.error('❌ Erreur Firebase:', error);
+            updateSyncStatus('error', '🔴 Erreur connexion');
+        }
+
+        // ===== DONNÉES LOCALES =====
+        let localData = {
+            patients: [],
+            actes: []
+        };
+
+        // ===== INITIALISATION =====
+        function init() {
+            // Date du jour par défaut
+            document.getElementById('acteDate').valueAsDate = new Date();
+            
+            // Charger patients depuis Firebase
+            if (firebaseReady) {
+                loadPatientsFromFirebase();
+                setupRealtimeListeners();
+            } else {
+                // Retry après 2 secondes
+                setTimeout(() => {
+                    if (firebaseReady) {
+                        loadPatientsFromFirebase();
+                        setupRealtimeListeners();
+                    }
+                }, 2000);
+            }
+            
+            // Render initial
+            renderActesList();
+        }
+
+        // ===== FIREBASE - CHARGEMENT DONNÉES =====
+        function loadPatientsFromFirebase() {
+            database.ref('patients').once('value', (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    localData.patients = Object.keys(data).map(key => ({
+                        id: key,
+                        ...data[key]
+                    }));
+                    renderPatientsDropdown();
+                    console.log(`✅ ${localData.patients.length} patients chargés`);
+                }
+            }).catch(error => {
+                console.error('❌ Erreur chargement patients:', error);
+            });
+        }
+
+        // ===== FIREBASE - ÉCOUTE TEMPS RÉEL =====
+        function setupRealtimeListeners() {
+            // Écouter nouveaux patients
+            database.ref('patients').on('child_added', (snapshot) => {
+                const patient = { id: snapshot.key, ...snapshot.val() };
+                const exists = localData.patients.find(p => p.id === patient.id);
+                if (!exists) {
+                    localData.patients.push(patient);
+                    renderPatientsDropdown();
+                    showToast(`✅ Nouveau patient : ${patient.nom} ${patient.prenom}`);
+                }
+            });
+        }
+
+        // ===== GESTION ACTES =====
+        function saveActe() {
+            const date = document.getElementById('acteDate').value;
+            const patientId = document.getElementById('actePatient').value;
+            const typeActe = document.getElementById('acteType').value;
+            const montant = parseFloat(document.getElementById('acteMontant').value);
+            const bilan = document.getElementById('acteBilan').checked;
+            const indemnite = document.getElementById('acteIndemnite').checked;
+            const montantIndemnite = indemnite ? parseFloat(document.getElementById('indemniteMontant').value) : 0;
+            const depassement = parseFloat(document.getElementById('acteDepassement').value) || 0;
+            
+            // Validation
+            if (!date || !patientId || !typeActe || !montant) {
+                showToast('❌ Veuillez remplir tous les champs obligatoires');
+                return;
+            }
+            
+            const acte = {
+                date: date,
+                patientId: patientId,
+                typeActe: typeActe,
+                montant: montant,
+                bilan: bilan,
+                indemnite: indemnite,
+                montantIndemnite: montantIndemnite,
+                depassementHonoraires: depassement,
+                statut: 'en_attente',
+                device: 'mobile',
+                createdAt: new Date().toISOString()
+            };
+            
+            // Sauvegarder dans Firebase
+            if (firebaseReady) {
+                const newActeRef = database.ref('actes').push();
+                newActeRef.set(acte).then(() => {
+                    acte.id = newActeRef.key;
+                    localData.actes.push(acte);
+                    showToast('✅ Acte enregistré et synchronisé');
+                    resetForm();
+                    renderActesList();
+                }).catch(error => {
+                    console.error('❌ Erreur sauvegarde:', error);
+                    showToast('❌ Erreur de synchronisation');
+                });
+            } else {
+                showToast('❌ Firebase non connecté');
+            }
+        }
+
+        function deleteActe(acteId) {
+            if (!confirm('Supprimer cet acte ?')) return;
+            
+            if (firebaseReady) {
+                database.ref('actes/' + acteId).remove().then(() => {
+                    localData.actes = localData.actes.filter(a => a.id !== acteId);
+                    renderActesList();
+                    showToast('✅ Acte supprimé');
+                }).catch(error => {
+                    console.error('❌ Erreur suppression:', error);
+                    showToast('❌ Erreur lors de la suppression');
+                });
+            }
+        }
+
+        function renderActesList() {
+            const container = document.getElementById('actesContainer');
+            const today = new Date().toISOString().split('T')[0];
+            const actesToday = localData.actes.filter(a => a.date === today);
+            
+            if (actesToday.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <p>Aucun acte aujourd'hui</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const total = actesToday.reduce((sum, a) => {
+                return sum + a.montant + (a.indemnite ? a.montantIndemnite : 0) + (a.depassementHonoraires || 0);
+            }, 0);
+            
+            let html = '';
+            actesToday.forEach(acte => {
+                const patient = localData.patients.find(p => p.id === acte.patientId);
+                const patientName = patient ? `${patient.nom} ${patient.prenom}` : 'Patient inconnu';
+                const montantTotal = acte.montant + (acte.indemnite ? acte.montantIndemnite : 0) + (acte.depassementHonoraires || 0);
+                
+                html += `
+                    <div class="acte-item">
+                        <div class="acte-header">
+                            <div class="acte-patient">${patientName}</div>
+                            <div class="acte-montant">${montantTotal.toFixed(2)}€</div>
+                        </div>
+                        <div class="acte-details">
+                            <span>${acte.typeActe} - ${acte.montant.toFixed(2)}€</span>
+                            ${acte.bilan ? '<span>📝 Bilan</span>' : ''}
+                            ${acte.indemnite ? '<span>🚗 IFD ' + acte.montantIndemnite.toFixed(2) + '€</span>' : ''}
+                            ${acte.depassementHonoraires > 0 ? '<span>➕ Dép. ' + acte.depassementHonoraires.toFixed(2) + '€</span>' : ''}
+                        </div>
+                        <div class="acte-actions">
+                            <button class="btn-small btn-delete" onclick="deleteActe('${acte.id}')">
+                                🗑️ Supprimer
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                <div class="total-day">
+                    <div class="total-day-label">Total de la journée</div>
+                    <div class="total-day-amount">${total.toFixed(2)} €</div>
+                    <div style="font-size: 0.875rem; margin-top: 0.5rem; opacity: 0.9;">
+                        ${actesToday.length} acte(s)
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // ===== GESTION PATIENTS =====
+        function renderPatientsDropdown() {
+            const select = document.getElementById('actePatient');
+            const currentValue = select.value;
+            
+            let html = '<option value="">Sélectionner un patient</option>';
+            localData.patients
+                .filter(p => p.actif !== false)
+                .sort((a, b) => a.nom.localeCompare(b.nom))
+                .forEach(patient => {
+                    html += `<option value="${patient.id}">${patient.nom} ${patient.prenom}</option>`;
+                });
+            
+            select.innerHTML = html;
+            select.value = currentValue;
+        }
+
+        // ===== UTILITAIRES =====
+        function switchScreen(screen) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            
+            document.getElementById('screen-' + screen).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (screen === 'liste') {
+                renderActesList();
+            }
+        }
+
+        function updateMontant() {
+            const select = document.getElementById('acteType');
+            const option = select.options[select.selectedIndex];
+            const montant = option.getAttribute('data-montant');
+            document.getElementById('acteMontant').value = montant || '';
+        }
+
+        function toggleIndemnite() {
+            const checked = document.getElementById('acteIndemnite').checked;
+            document.getElementById('indemniteMontantGroup').style.display = checked ? 'block' : 'none';
+        }
+
+        function resetForm() {
+            document.getElementById('acteDate').valueAsDate = new Date();
+            document.getElementById('actePatient').value = '';
+            document.getElementById('acteType').value = '';
+            document.getElementById('acteMontant').value = '';
+            document.getElementById('acteBilan').checked = false;
+            document.getElementById('acteIndemnite').checked = false;
+            document.getElementById('acteDepassement').value = '0';
+            toggleIndemnite();
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        function updateSyncStatus(type, message) {
+            const status = document.getElementById('syncStatus');
+            status.textContent = message;
+            status.className = 'sync-status ' + type;
+        }
+
+        // ===== DÉMARRAGE =====
+        window.onload = init;
+    </script>
+</body>
+</html>
