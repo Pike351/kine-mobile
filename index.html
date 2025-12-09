@@ -578,22 +578,12 @@
                         <input type="number" id="acteMontant" class="form-input" step="0.01" readonly>
                     </div>
 
-                    <div class="checkbox-group" onclick="document.getElementById('acteBilan').click()">
-                        <input type="checkbox" id="acteBilan">
-                        <label for="acteBilan">📝 Acte de bilan</label>
-                    </div>
-
                     <div id="ifdInfo" class="ifd-info">
                         <div class="ifd-info-header">
                             🚗 Indemnité Forfaitaire de Déplacement (IFD)
                         </div>
                         <div class="ifd-info-amount" id="ifdAmount">10.00 €</div>
-                        <div class="ifd-info-text">Cochez ci-dessous pour l'inclure dans cet acte</div>
-                    </div>
-
-                    <div class="checkbox-group" id="ifdCheckboxGroup" style="display: none;" onclick="document.getElementById('acteIFD').click(); updateMontantTotal();">
-                        <input type="checkbox" id="acteIFD" onchange="updateMontantTotal()">
-                        <label for="acteIFD">Inclure l'IFD</label>
+                        <div class="ifd-info-text">Sera automatiquement incluse dans cet acte</div>
                     </div>
 
                     <div class="total-display">
@@ -845,7 +835,6 @@
             if (!option.value) {
                 document.getElementById('acteMontant').value = '';
                 document.getElementById('ifdInfo').classList.remove('visible');
-                document.getElementById('ifdCheckboxGroup').style.display = 'none';
                 document.getElementById('totalAmount').textContent = '0.00 €';
                 document.getElementById('totalBreakdown').textContent = '';
                 return;
@@ -856,33 +845,25 @@
             
             document.getElementById('acteMontant').value = montantBase.toFixed(2);
 
-            // Gestion IFD
+            // Afficher IFD si applicable (automatiquement incluse)
             const ifdInfo = document.getElementById('ifdInfo');
-            const ifdCheckboxGroup = document.getElementById('ifdCheckboxGroup');
-            const ifdCheckbox = document.getElementById('acteIFD');
             
             if (montantIFD > 0) {
-                // Afficher info IFD
                 document.getElementById('ifdAmount').textContent = montantIFD.toFixed(2) + ' €';
                 ifdInfo.classList.add('visible');
-                ifdCheckboxGroup.style.display = 'flex';
-                ifdCheckbox.checked = false; // Par défaut décoché
             } else {
                 ifdInfo.classList.remove('visible');
-                ifdCheckboxGroup.style.display = 'none';
-                ifdCheckbox.checked = false;
             }
 
-            // Calculer total
-            const includeIFD = ifdCheckbox.checked;
-            const total = montantBase + (includeIFD ? montantIFD : 0);
+            // Calculer total (IFD automatiquement incluse si > 0)
+            const total = montantBase + montantIFD;
             
             document.getElementById('totalAmount').textContent = total.toFixed(2) + ' €';
             
             // Breakdown
             const breakdown = [];
             if (montantBase > 0) breakdown.push(`${montantBase.toFixed(2)}€ base`);
-            if (includeIFD && montantIFD > 0) breakdown.push(`${montantIFD.toFixed(2)}€ IFD`);
+            if (montantIFD > 0) breakdown.push(`${montantIFD.toFixed(2)}€ IFD`);
             document.getElementById('totalBreakdown').textContent = breakdown.join(' + ');
         }
 
@@ -891,12 +872,11 @@
             const patientId = document.getElementById('actePatient').value;
             const typeActe = document.getElementById('acteType').value;
             const montant = parseFloat(document.getElementById('acteMontant').value);
-            const bilan = document.getElementById('acteBilan').checked;
             
             const selectType = document.getElementById('acteType');
             const option = selectType.options[selectType.selectedIndex];
             const montantIFD = parseFloat(option.getAttribute('data-ifd')) || 0;
-            const includeIFD = montantIFD > 0 && document.getElementById('acteIFD').checked;
+            const hasIFD = montantIFD > 0;
 
             if (!date || !patientId || !typeActe || !montant) {
                 showToast('❌ Veuillez remplir tous les champs');
@@ -908,9 +888,9 @@
                 patientId: patientId,
                 typeActe: typeActe,
                 montant: montant,
-                bilan: bilan,
-                indemnite: includeIFD,
-                montantIndemnite: includeIFD ? montantIFD : 0,
+                bilan: false, // Sera déterminé par le type d'acte côté PC si nécessaire
+                indemnite: hasIFD,
+                montantIndemnite: hasIFD ? montantIFD : 0,
                 statut: 'en_attente',
                 device: 'mobile',
                 createdAt: new Date().toISOString()
@@ -954,7 +934,6 @@
             document.getElementById('acteForm').reset();
             document.getElementById('acteDate').valueAsDate = new Date();
             document.getElementById('ifdInfo').classList.remove('visible');
-            document.getElementById('ifdCheckboxGroup').style.display = 'none';
             updateMontantTotal();
         }
 
