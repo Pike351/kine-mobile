@@ -651,7 +651,10 @@
     <!-- Header -->
     <div class="header">
         <div class="header-content">
-            <h1><span class="header-icon">🩺</span> Kiné Mobile</h1>
+            <div>
+                <h1><span class="header-icon">🩺</span> Kiné Mobile</h1>
+                <div style="font-size: 0.75rem; color: rgba(255, 255, 255, 0.7); margin-top: -0.5rem; margin-left: 2.5rem;">v2.1.0</div>
+            </div>
             <div class="sync-indicator" id="syncIndicator">
                 <div class="sync-dot"></div>
                 <span id="syncText">Connexion...</span>
@@ -694,6 +697,19 @@
                     <div class="form-group">
                         <label class="form-label">💰 Montant de base</label>
                         <input type="number" id="acteMontant" class="form-input" step="0.01" readonly>
+                    </div>
+
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; user-select: none;">
+                            <input type="checkbox" id="acteBilan" style="width: 20px; height: 20px; cursor: pointer;">
+                            <span style="font-weight: 500; color: #1e293b;">📋 Créer un bilan pour cet acte</span>
+                        </label>
+                        <div style="font-size: 0.875rem; color: #64748b; margin-top: 0.25rem; margin-left: 28px;">
+                            Le bilan sera créé automatiquement et pourra être complété sur l'app PC
+                        </div>
+                        <div style="font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; margin-left: 28px;">
+                            ℹ️ Coché automatiquement pour AMK 28 (bilan initial) et AMK 20 (bilan intermédiaire)
+                        </div>
                     </div>
 
                     <div id="ifdInfo" class="ifd-info">
@@ -997,8 +1013,19 @@
 
             const montantBase = parseFloat(option.getAttribute('data-montant')) || 0;
             const montantIFD = parseFloat(option.getAttribute('data-ifd')) || 0;
+            const typeCode = option.value;
             
             document.getElementById('acteMontant').value = montantBase.toFixed(2);
+
+            // Auto-cocher bilan pour AMK 28 (initial) et AMK 20 (intermédiaire)
+            const bilanCheckbox = document.getElementById('acteBilan');
+            if (bilanCheckbox) {
+                if (typeCode === 'AMK 28' || typeCode === 'AMK 20') {
+                    bilanCheckbox.checked = true;
+                } else {
+                    bilanCheckbox.checked = false;
+                }
+            }
 
             // Afficher IFD si applicable (automatiquement incluse)
             const ifdInfo = document.getElementById('ifdInfo');
@@ -1027,6 +1054,7 @@
             const patientId = document.getElementById('actePatient').value;
             const typeActe = document.getElementById('acteType').value;
             const montant = parseFloat(document.getElementById('acteMontant').value);
+            const bilanChecked = document.getElementById('acteBilan').checked;
             
             const selectType = document.getElementById('acteType');
             const option = selectType.options[selectType.selectedIndex];
@@ -1043,7 +1071,7 @@
                 patientId: patientId,
                 typeActe: typeActe,
                 montant: montant,
-                bilan: false, // Sera déterminé par le type d'acte côté PC si nécessaire
+                bilan: bilanChecked,
                 indemnite: hasIFD,
                 montantIndemnite: hasIFD ? montantIFD : 0,
                 statut: 'en_attente',
@@ -1054,11 +1082,42 @@
             if (firebaseReady) {
                 const newActeRef = database.ref('actes').push();
                 newActeRef.set(acte).then(() => {
-                    showToast('✅ Acte enregistré avec succès');
+                    const acteId = newActeRef.key;
+                    
+                    // Si bilan coché, créer un bilan vide
+                    if (bilanChecked) {
+                        const newBilan = {
+                            patientId: patientId,
+                            date: date,
+                            acteId: acteId,
+                            typeInitial: true,
+                            typeIntermediaire: false,
+                            typeFinale: false,
+                            diagnostic: '',
+                            objectifsCourtTerme: '',
+                            objectifsLongTerme: '',
+                            nombreSeances: '',
+                            techniques: '',
+                            commentaires: '',
+                            complete: false,
+                            finalized: false,
+                            createdAt: new Date().toISOString()
+                        };
+                        
+                        database.ref('bilans').push().set(newBilan).then(() => {
+                            showToast('✅ Acte et bilan créés avec succès');
+                        }).catch(error => {
+                            console.error('❌ Erreur création bilan:', error);
+                            showToast('✅ Acte enregistré (erreur bilan)');
+                        });
+                    } else {
+                        showToast('✅ Acte enregistré avec succès');
+                    }
+                    
                     resetForm();
                     
                     // Ajouter à la liste locale
-                    acte.id = newActeRef.key;
+                    acte.id = acteId;
                     localData.actes.unshift(acte);
                     renderActesList();
                 }).catch(error => {
@@ -1197,8 +1256,8 @@
                             <div class="map-popup-address">📍 ${patient.adresse}</div>
                             ${patient.telephone ? `<div class="map-popup-address">📞 ${patient.telephone}</div>` : ''}
                             <div class="map-popup-buttons">
-                                <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(patient.adresse)}" target="_blank" class="map-popup-btn">🗺️ Maps</a>
-                                <a href="https://waze.com/ul?q=${encodeURIComponent(patient.adresse)}&navigate=yes" target="_blank" class="map-popup-btn secondary">🚗 Waze</a>
+                                <a href="https://www.google.com/maps/dir/?api=1&origin=current+location&destination=${encodeURIComponent(patient.adresse)}" target="_blank" class="map-popup-btn">🗺️ Maps</a>
+                                <a href="https://waze.com/ul?q=${encodeURIComponent(patient.adresse)}&navigate=yes" target="_blank" class="map-popup-btn">🚗 Waze</a>
                             </div>
                             ${patient.telephone ? `<a href="tel:${patient.telephone}" class="map-popup-btn" style="margin-top: 0.5rem;">📞 Appeler</a>` : ''}
                         </div>
@@ -1289,8 +1348,8 @@
                             </div>
                         </div>
                         <div class="patient-actions">
-                            ${hasAddress ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(patient.adresse)}" target="_blank" class="patient-action-btn" style="text-decoration: none;">🗺️ Maps</a>` : ''}
-                            ${hasAddress ? `<a href="https://waze.com/ul?q=${encodeURIComponent(patient.adresse)}&navigate=yes" target="_blank" class="patient-action-btn secondary" style="text-decoration: none;">🚗 Waze</a>` : ''}
+                            ${hasAddress ? `<a href="https://www.google.com/maps/dir/?api=1&origin=current+location&destination=${encodeURIComponent(patient.adresse)}" target="_blank" class="patient-action-btn" style="text-decoration: none;">🗺️ Maps</a>` : ''}
+                            ${hasAddress ? `<a href="https://waze.com/ul?q=${encodeURIComponent(patient.adresse)}&navigate=yes" target="_blank" class="patient-action-btn" style="text-decoration: none;">🚗 Waze</a>` : ''}
                             ${hasPhone ? `<a href="tel:${patient.telephone}" class="patient-action-btn secondary" style="text-decoration: none;">📞 Appeler</a>` : ''}
                         </div>
                     </div>
